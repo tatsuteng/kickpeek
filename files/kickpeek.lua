@@ -11,7 +11,7 @@ function kick(mac)
 	os.execute("hostapd_cli deauthenticate " .. mac)
 end
 
-function kick_peak(iface, threshold, timeout, whitelist)
+function kick_peek(iface, threshold, timeout, whitelist)
 	local station = {}
 
 	for k,v in pairs(whitelist) do
@@ -28,7 +28,7 @@ function kick_peak(iface, threshold, timeout, whitelist)
 			local mac = string.lower(string.match(d, '^..:..:..:..:..:..'))
 			local sig = tonumber(string.match(d, '-.*$'))
 
-			if sig >= threshold then
+			if sig ~= nil and sig >= threshold then
 				if station[mac] == nil then
 					station[mac] = os.time()
 				elseif station[mac] ~= 0 then
@@ -57,13 +57,13 @@ function kick_peak(iface, threshold, timeout, whitelist)
 end
 
 function usage()
-	print("Usage: kick-peak [-i interface] [-t timeout] [-w mac_address]")
+	print("Usage: kickpeek [-i interface] [-t timeout] [-w mac_address]")
 	os.exit()
 end
 
 function main()
 	local iface = "wlan0"
-	local threshold = -20
+	local threshold = -30
 	local timeout = 3600
 	local whitelist = {}
 
@@ -86,7 +86,8 @@ function main()
 	end
 
 	-- Enter main loop
-	kick_peak(iface, threshold, timeout, whitelist)
+	kick_peek(iface, threshold, timeout, whitelist)
 end
 
 main()
+
