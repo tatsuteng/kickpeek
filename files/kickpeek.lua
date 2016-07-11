@@ -1,5 +1,7 @@
 #!/usr/bin/lua
 
+LOGFILE="/var/log/kickpeek.log"
+
 function get_station_info(iface)
 	local iw_f = io.popen("iw dev " .. iface .. " station dump | grep -e Station -e signal: | awk '{print $2}' | awk 'NR%2{printf $0 ;next;}1'")
 	local iw_l = iw_f:read("*a")
@@ -37,20 +39,23 @@ function kick_peek(iface, threshold, timeout, whitelist)
 			end
 		end
 
-		-- Kick the invalid station
+		-- Kick the invalid stations and preserve the valid
+        local logfile = io.open(LOGFILE, "w")
 		for d in string.gmatch(info, "%S+") do
 			local mac = string.match(d, '^..:..:..:..:..:..')
+
 			if station[mac] == nil then
-				print("kick", mac)
+				print(os.date() .. " -- Kick ".. mac .. "\n")
 				kick(mac)
 			elseif station[mac] ~= 0 and os.time()-station[mac] > timeout then
 				station[mac] = nil
-				print("kick", mac)
+				print(os.date() .. " -- Kick ".. mac .. "\n")
 				kick(mac)
 			else
-				print("not kicking", mac, " remaining:", timeout-(os.time()-station[mac]));
+				logfile:write(os.date() .. " " .. mac .. " timeouts in " .. timeout-(os.time()-station[mac]) .. "s\n")
 			end
 		end
+        logfile:close()
 
 		os.execute("sleep 1")
 	end
@@ -63,7 +68,7 @@ end
 
 function main()
 	local iface = "wlan0"
-	local threshold = -30
+	local threshold = -40
 	local timeout = 3600
 	local whitelist = {}
 
