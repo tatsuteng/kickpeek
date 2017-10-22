@@ -9,12 +9,13 @@ function get_station_info(iface)
 	return iw_l
 end
 
-function kick(mac)
-	os.execute("hostapd_cli deauthenticate " .. mac)
+function kick(mac, iface)
+	os.execute("hostapd_cli -i " .. iface .. " deauthenticate " .. mac)
 end
 
 function kick_peek(iface, threshold, timeout, whitelist)
 	local station = {}
+    local logfile = io.open(LOGFILE, "w")
 
 	for k,v in pairs(whitelist) do
 		v = string.lower(v)
@@ -26,6 +27,7 @@ function kick_peek(iface, threshold, timeout, whitelist)
 		local info = get_station_info(iface)
 
 		-- Store the vadlidated station info
+		date = string.gsub(os.date(), " ", "_")
 		for d in string.gmatch(info, "%S+") do
 			local mac = string.lower(string.match(d, '^..:..:..:..:..:..'))
 			local sig = tonumber(string.match(d, '-.*$'))
@@ -33,32 +35,30 @@ function kick_peek(iface, threshold, timeout, whitelist)
 			if sig ~= nil and sig >= threshold then
 				if station[mac] == nil then
 					station[mac] = os.time()
-				elseif station[mac] ~= 0 then
-					station[mac] = os.time()
+				    logfile:write(os.date() .. " ".. mac .. " validated with " .. sig .. " dBm\n")
 				end
 			end
 		end
 
 		-- Kick the invalid stations and preserve the valid
-        local logfile = io.open(LOGFILE, "w")
 		for d in string.gmatch(info, "%S+") do
 			local mac = string.match(d, '^..:..:..:..:..:..')
 
 			if station[mac] == nil then
 				print(os.date() .. " -- Kick ".. mac .. "\n")
-				kick(mac)
+				kick(mac, iface)
 			elseif station[mac] ~= 0 and os.time()-station[mac] > timeout then
 				station[mac] = nil
 				print(os.date() .. " -- Kick ".. mac .. "\n")
-				kick(mac)
+				kick(mac, iface)
 			else
-				logfile:write(os.date() .. " " .. mac .. " timeouts in " .. timeout-(os.time()-station[mac]) .. "s\n")
+				print(os.date() .. " " .. mac .. " timeouts in " .. timeout-(os.time()-station[mac]) .. "s\n")
 			end
 		end
-        logfile:close()
 
 		os.execute("sleep 1")
 	end
+    logfile:close()
 end
 
 function usage()
